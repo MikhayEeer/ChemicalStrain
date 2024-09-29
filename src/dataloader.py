@@ -3,13 +3,12 @@ import re
 import glob
 import time
 
-class DataLoader:
+class DataLoader(baseTask):
     def __init__(self, folder_path):
-        self.folder_path = folder_path
+        super().__init__(folder_path)
         print(f"##debug## 数据加载器初始化完成")
         print(f"##debug## 当前数据目录: {self.folder_path}")
         self.start_time = time.time()
-        self.numbers_txt_files = []
     
     def split_txt_files(self):
         print(f"##debug## 开始分割txt文件")
@@ -42,7 +41,7 @@ class DataLoader:
         end_time = time.time()
         print(f"##debug## 分割txt文件完成，用时: {end_time - self.start_time}秒")
 
-    def __remove_background_noise(self, input_file):
+    def _remove_background_noise(self, input_file):
         try:
             #print(f"--debug-- 正在处理文件: {input_file}")
             with open(input_file, 'r') as f:
@@ -95,16 +94,12 @@ class DataLoader:
         print(f"##debug## 开始背景噪声消除")
         for file_path in txt_files:
             if os.path.basename(file_path).strip(".txt").isdigit():
-                self.numbers_txt_files.append(file_path)
-                self.__remove_background_noise(file_path)
-
-    def get_numbers_txt_files(self):
-        return self.numbers_txt_files
+                self._remove_background_noise(file_path)
 
     def phase_correction(self):
         print(f"##debug## 开始相位矫正")
         for filename in os.listdir(self.folder_path):
-            if re.match(r'^\d+\.txt$', filename):
+            if check_txt_digital_name(filename):
                 input_file_path = os.path.join(self.folder_path, filename)
 
                 data = []
