@@ -10,10 +10,11 @@ from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 from matplotlib.colors import LinearSegmentedColormap
 
-class plotter(baseTask):
+class Plotter(BaseTask):
     def __init__(self, folder_path):
         super().__init__(folder_path)
         plt.rcParams['font.family'] = 'Times New Roman' 
+        self.exec_call()
 
     def exec_call(self):
         choice = select_choices()
@@ -75,7 +76,6 @@ class plotter(baseTask):
         data = self._load_data_from_txt(file_name)
         self._plot_lissajous_core([data], [file_number])
 
-        
     def plot_stress_strain_normalization(self, 
                         output_folder_name="归一化结果"):
         '''
@@ -756,13 +756,278 @@ class plotter(baseTask):
         '''
         笼子模型
         '''
-        pass
+        # 获取文件夹内所有Excel文件
+        excel_files = [f for f in os.listdir(folder_path) if f.endswith('.xlsx')]
+
+        # 检查是否有唯一的Excel文件
+        if len(excel_files) == 1:
+            excel_file = os.path.join(folder_path, excel_files[0])
+
+            # 读取Excel文件
+            df = pd.read_excel(excel_file)
+
+            # 读取G' in Pa和ɣ in -列
+            G_prime = df["G' in Pa"].values
+            strain_0 = df["ɣ in -"].values
+        else:
+            print("文件夹中没有唯一的Excel文件，或存在多个Excel文件。")
+            exit()
+
+        # 获取文件夹内所有数字命名的txt文件
+        txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt') and f[:-4].isdigit()]
+
+        # 定义存储所有计算出的G_cage的列表
+        G_cage_values = []
+
+        # 遍历每个txt文件
+        for txt_file in txt_files:
+            file_path = os.path.join(folder_path, txt_file)
+
+            # 读取txt文件内容
+            data = np.loadtxt(file_path)
+
+            # 分别获取时间t，应力stress，应变strain，应变速率
+            time = data[:, 0]
+            stress = data[:, 1]
+            strain = data[:, 2]
+            strain_rate = data[:, 3]
+
+            # 找到应力列最接近于0的值的索引n
+            n = np.argmin(np.abs(stress))
+            # 计算应力对应变的导数
+            d_sigma_d_gamma = np.gradient(stress, strain)
+
+            # 获取应力为0点的G_cage
+            G_cage = d_sigma_d_gamma[n]
+
+
+            G_cage_values.append(G_cage)  # 将G_cage值存储到列表中
+            print(f"G_cage: {G_cage}")
+
+        # 确保G_cage_values和G_prime长度一致
+        if len(G_cage_values) != len(G_prime):
+            print(f"G_cage的数量 ({len(G_cage_values)}) 和 G_prime ({len(G_prime)}) 数量不一致。")
+            exit()
+
+        # 计算G_cage / G_prime
+        G_ratio_values = np.array(G_cage_values) / G_prime
+
+        # 转换x轴数据为百分数
+        x_values_percent = strain_0 * 100
+
+        # 绘图
+        plt.figure()
+        plt.plot(x_values_percent, G_ratio_values, 'o-')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xlabel("Strain (%)")
+        plt.ylabel("G_cage / G'")
+        plt.title("G_cage / G' vs Strain")
+        plt.grid(True)
+        plt.show() 
 
     def plot_spp():
         '''
         spp绘图 , 需要choice 7进行数据计算
         '''
-        pass
+
+        # 定义文件夹路径
+        folder_path = os.path.join(folder_path, 'Spp Data')
+        save_path = os.path.join(folder_path, 'file_titles.txt')
+
+
+        # 定义函数读取上次保存的文件编号和曲线标题
+        def load_previous_selection(save_path):
+            if os.path.exists(save_path):
+                with open(save_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    file_numbers = []
+                    titles = []
+                    for line in lines:
+                        parts = line.strip().split(', 曲线标题: ')
+                        file_numbers.append(parts[0].split('文件编号: ')[1])
+                        titles.append(parts[1])
+                    return file_numbers, titles
+            return [], []
+
+
+        # 询问用户是否要加载上次保存的文件编号和标题
+        use_previous = input("是否加载上次保存的文件编号和曲线标题？（是请输入1/否请输入2）：")
+        if use_previous.lower() == '1':
+            file_numbers, titles = load_previous_selection(save_path)
+            print(f"已加载文件编号: {file_numbers}")
+            print(f"已加载曲线标题: {titles}")
+        else:
+            # 列出文件夹中已存在的txt文件
+            existing_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
+            if existing_files:
+                print("Spp Data 文件夹中的txt文件有：")
+                for file in existing_files:
+                    print(file)
+            else:
+                print("Spp Data 文件夹中没有找到txt文件。")
+
+            # 用户输入文件编号（假设用户输入'01 02 03'）
+            file_numbers = input("请输入文件编号（空格隔开）：").split()
+
+            # 获取用户输入的曲线标题
+            titles = []
+            for num in file_numbers:
+                title = input(f"请输入文件 {num}_spp data.txt 的曲线标题：")
+                titles.append(title)
+
+            # 询问是否保存文件编号和曲线标题
+            save_data = input("是否保存文件编号和曲线标题？（是/否）：")
+            if save_data.lower() == '是':
+                with open(save_path, 'w', encoding='utf-8') as f:
+                    for num, title in zip(file_numbers, titles):
+                        f.write(f"文件编号: {num}, 曲线标题: {title}\n")
+                print(f"文件编号和曲线标题已保存到 {save_path}")
+
+        # 定义不同的颜色渐变
+        colormaps = [
+            cm.winter,  # 橙黄-紫黑渐变
+            cm.viridis,  # 蓝绿渐变
+            cm.cool,  # 多色彩虹渐变（对比度较高）
+            cm.Wistia,  # 蓝红渐变（强对比）
+            cm.bwr,  # 全色相环
+            cm.tab20,  # 离散颜色对比度强
+            cm.twilight,  # 蓝紫-黄粉渐变
+            cm.PuBuGn,  # 紫蓝绿渐变
+            cm.YlGnBu,  # 黄绿蓝渐变
+            cm.RdYlBu,  # 红黄蓝渐变（强对比）
+            cm.plasma,  # 紫红渐变
+            cm.nipy_spectral,  # 多彩强对比
+            cm.Set1  # 强对比离散颜色
+        ]
+
+
+        #颜色1
+        cmap1 = cm.get_cmap('autumn', 256)  # 第一个渐变颜色条
+        cmap2 = cm.get_cmap('cool', 256)  # 第二个渐变颜色条
+        #颜色2
+        #cmap1 = cm.get_cmap('brg', 256)  # 第一个渐变颜色条
+        #cmap2 = cm.get_cmap('jet', 256)  # 第二个渐变颜色条
+        #颜色3
+        #cmap1 = cm.get_cmap('Set1', 256)  # 第一个渐变颜色条
+        #cmap2 = cm.get_cmap('jet', 256)  # 第二个渐变颜色条
+
+        # 使用更高对比度和亮度的颜色条
+        #cmap1 = cm.get_cmap('PuBu', 256)
+        #cmap2 = cm.get_cmap('rainbow', 256)
+
+        # 取颜色条的颜色，进行线性插值
+        colors1 = cmap1(np.linspace(1, 0, 200))  # Spectral 颜色条从头到尾
+        colors2 = cmap2(np.linspace(0.25, 1, 220))  # coolwarm 颜色条从头到尾
+
+        # 拼接两个颜色条
+        combined_colors = np.vstack((colors1, colors2))
+
+        # 创建新的颜色条
+        new_cmap = LinearSegmentedColormap.from_list('combined_cmap', combined_colors)
+
+        # 将 colormap 设置为新的颜色条
+        colormap = new_cmap
+        # 初始化存储数据的字典，用于存储每个文件的曲线
+        gt_prime_dict = {}
+        gt_double_prime_dict = {}
+        dgt_prime_dt_dict = {}
+        dgt_double_prime_dt_dict = {}
+
+        # 读取用户指定的文件
+        for num in file_numbers:
+            file_path = os.path.join(folder_path, f"{num}_spp data.txt")
+
+            if os.path.exists(file_path):
+                data = np.loadtxt(file_path)
+
+                # 假设每个txt文件有四列数据
+                gt_prime_dict[num] = data[:, 0]  # 第一列 Gt'
+                gt_double_prime_dict[num] = data[:, 1]  # 第二列 Gt''
+                dgt_prime_dt_dict[num] = data[:, 2]  # 第三列 dGt'/dt
+                dgt_double_prime_dt_dict[num] = data[:, 3]  # 第四列 dGt''/dt
+            else:
+                print(f"文件 {num}_spp data.txt 不存在")
+
+        # 创建子图
+        fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+        # 绘制第一个散点图 (Gₜ' vs Gₜ'')
+        for i, num in enumerate(file_numbers):
+            if num in gt_prime_dict:
+                Gt_prime = gt_prime_dict[num]
+                Gt_double_prime = gt_double_prime_dict[num]
+
+                # 从渐变中选取一个颜色，使用np.linspace来控制不同曲线的对比度
+                color = colormap(i / len(file_numbers))  # 为每条曲线选择单一颜色
+
+                # 绘制散点图，所有点使用同一个颜色
+                axs[0].scatter(Gt_prime, Gt_double_prime, c=[color], s=50, alpha=0.8, edgecolors='w', linewidth=0.5)
+
+        # 使用 Unicode 格式确保下标 t 正常显示
+        axs[0].set_title('Cole–Cole plots of Gₜ\'(t) and Gₜ″(t)', fontweight='bold')
+        axs[0].set_xlabel('Gₜ\'(t)', fontsize=14, fontweight='bold')
+        axs[0].set_ylabel('Gₜ″(t)', fontsize=14, fontweight='bold')
+        axs[0].grid(True)
+
+        # 绘制第二个散点图 (dGₜ'/dt vs dGₜ''/dt)
+        for i, num in enumerate(file_numbers):
+            if num in dgt_prime_dt_dict:
+                dGt_prime_dt = dgt_prime_dt_dict[num]
+                dGt_double_prime_dt = dgt_double_prime_dt_dict[num]
+
+                # 从渐变中选取一个颜色
+                color = colormap(i / len(file_numbers))  # 为每条曲线选择单一颜色
+
+                # 绘制散点图，所有点使用同一个颜色
+                axs[1].scatter(dGt_prime_dt, dGt_double_prime_dt, c=[color], s=50, alpha=0.8, edgecolors='w', linewidth=0.5)
+
+        # 使用 Unicode 格式确保下标 t 正常显示，并设置字体加粗
+        axs[1].set_title('Cole–Cole plots of dGₜ\'(t)/dt and dGₜ″(t)/dt', fontsize=14, fontweight='bold')
+        axs[1].set_xlabel('dGₜ\'(t)/dt', fontsize=14, fontweight='bold')
+        axs[1].set_ylabel('dGₜ″(t)/dt', fontsize=14, fontweight='bold')
+        axs[1].grid(True)
+
+        # 创建图例
+        legend_elements = []
+        for i, title in enumerate(titles):
+            color = colormap(i / len(file_numbers))
+
+            # 添加颜色点和标题到图例元素中
+            legend_elements.append(
+                Line2D([0], [0], marker='o', color=color, label=title, markersize=10, linestyle='None'))
+
+        # 显示图例
+        axs[0].legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1, 1), frameon=False, prop={'weight': 'bold'})
+        axs[1].legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1, 1), frameon=False, prop={'weight': 'bold'})
+        # 使用 plt.setp 修改刻度标签字体为加粗
+        plt.setp(axs[0].get_xticklabels(), fontweight='bold')
+        plt.setp(axs[0].get_yticklabels(), fontweight='bold')
+        plt.setp(axs[1].get_xticklabels(), fontweight='bold')
+        plt.setp(axs[1].get_yticklabels(), fontweight='bold')
+
+        file_name = 'Spp.png'
+        # 完整文件路径
+        save_path = os.path.join(folder_path, file_name)
+        # 确保关闭所有子图的网格
+        for ax in axs:
+            ax.grid(False)
+        # 自动调整布局
+        plt.tight_layout()
+        # 保存图片到指定路径，设置DPI为300
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
+        # 保存图片时指定 DPI，确保图片清晰
+        fig.savefig('your_figure_name.png', dpi=300)
+        print("Spp 数据图片已保存")
+
+        # 调整子图布局
+        plt.tight_layout()
+
+        # 去掉背景网格
+        axs[0].grid(False)
+        axs[1].grid(False)
+
+        # 显示图形
+        plt.show()
 
 # private:
     def _plot_lissajous_core(self, data_list, file_numbers, color="haline_r"):
