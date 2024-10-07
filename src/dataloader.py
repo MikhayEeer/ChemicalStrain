@@ -2,8 +2,9 @@ import os
 import re
 import glob
 import time
+from abstract import BaseTask
 
-class DataLoader(baseTask):
+class DataLoader(BaseTask):
     def __init__(self, folder_path):
         super().__init__(folder_path)
         print(f"##debug## 数据加载器初始化完成")
@@ -99,7 +100,7 @@ class DataLoader(baseTask):
     def phase_correction(self):
         print(f"##debug## 开始相位矫正")
         for filename in os.listdir(self.folder_path):
-            if check_txt_digital_name(filename):
+            if self.check_txt_digital_path(filename):
                 input_file_path = os.path.join(self.folder_path, filename)
 
                 data = []

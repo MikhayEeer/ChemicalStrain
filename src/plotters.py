@@ -1,6 +1,8 @@
 import os
 import re
 
+import numpy as np
+import pandas as pd
 import plotly.io as pio
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
@@ -10,19 +12,22 @@ from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 from matplotlib.colors import LinearSegmentedColormap
 
+from abstract import BaseTask
+
 class Plotter(BaseTask):
-    def __init__(self, folder_path):
+    def __init__(self, folder_path, omega):
         super().__init__(folder_path)
         plt.rcParams['font.family'] = 'Times New Roman' 
+        self.omega = omega
         self.exec_call()
 
     def exec_call(self):
-        choice = select_choices()
+        choice = self.select_choices()
         while choice not in ["0", "1", "2", "3", "4", 
                             "5", "6", "7", "8", "9", "10", "11"]:
             print("-- info -- 无效的选择, 请输入1-11之间的数字\n"
                   "-- info -- 请重新选择：")
-            choice = select_choices()
+            choice = self.select_choices()
         choice = int(choice)
         match choice:
             case 0:
@@ -196,8 +201,8 @@ class Plotter(BaseTask):
                 
         mod_Gl = [g / s for g, s in zip(Gl, strain_value)]
         mod_Gm = [g / s for g, s in zip(Gm, strain_value)]
-        mod_el = [e / (s*omega) for e, s in zip(el, strain_value)]
-        mod_em = [e / (s*omega) for e, s in zip(em, strain_value)]
+        mod_el = [e / (s*self.omega) for e, s in zip(el, strain_value)]
+        mod_em = [e / (s*self.omega) for e, s in zip(em, strain_value)]
 
         output_mod_file_path = os.path.join(self.folder_path, "mod_ST.txt")
         with open(output_mod_file_path, 'w') as output_mod_file:
@@ -231,11 +236,11 @@ class Plotter(BaseTask):
 
         txt_files.sort(key=custom_sort)
                         
-        excel_file_paths = []
         for root, dirs, files in os.walk(self.folder_path):
             for file in files:
                 if file.endswith(".xlsx") or file.endswith(".xls"):
-                    excel_file_paths.append(os.path.join(root, file))
+                    if not file.startswith('~'):
+                        excel_file_path=os.path.join(root, file)
 
         df = pd.read_excel(excel_file_path)
         strain_values = df['ɣ in -'].tolist()
@@ -252,7 +257,7 @@ class Plotter(BaseTask):
         for i, idx in enumerate(selected_indices):
             if 0 <= idx < len(txt_files):
                 file_name = txt_files[idx]
-                file_path = os.path.join(F_folder_path, file_name)
+                file_path = os.path.join(fourier_folder_path, file_name)
 
                 with open(file_path, 'r') as file:
                     lines = file.readlines()
@@ -757,11 +762,11 @@ class Plotter(BaseTask):
         笼子模型
         '''
         # 获取文件夹内所有Excel文件
-        excel_files = [f for f in os.listdir(folder_path) if f.endswith('.xlsx')]
+        excel_files = [f for f in os.listdir(self.folder_path) if f.endswith('.xlsx')]
 
         # 检查是否有唯一的Excel文件
         if len(excel_files) == 1:
-            excel_file = os.path.join(folder_path, excel_files[0])
+            excel_file = os.path.join(self.folder_path, excel_files[0])
 
             # 读取Excel文件
             df = pd.read_excel(excel_file)
@@ -774,14 +779,14 @@ class Plotter(BaseTask):
             exit()
 
         # 获取文件夹内所有数字命名的txt文件
-        txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt') and f[:-4].isdigit()]
+        txt_files = [f for f in os.listdir(self.folder_path) if f.endswith('.txt') and f[:-4].isdigit()]
 
         # 定义存储所有计算出的G_cage的列表
         G_cage_values = []
 
         # 遍历每个txt文件
         for txt_file in txt_files:
-            file_path = os.path.join(folder_path, txt_file)
+            file_path = os.path.join(self.folder_path, txt_file)
 
             # 读取txt文件内容
             data = np.loadtxt(file_path)
@@ -1030,7 +1035,7 @@ class Plotter(BaseTask):
         plt.show()
 
 # private:
-    def _plot_lissajous_core(self, data_list, file_numbers, color="haline_r"):
+    def _plot_lissajous_core(self, data_list, file_numbers, colors="haline_r"):
         '''
         李萨如环核心绘制函数
         '''

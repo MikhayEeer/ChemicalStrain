@@ -6,7 +6,7 @@ import plotters
 
 if __name__ == "__main__":
     print(f"--debug-- 当前工作目录: {os.getcwd()}")
-    folder_path = r"samples\4h1%_mini"
+    folder_path = os.path.join("samples","4h1%_mini")
     dataloader = dataloader.DataLoader(folder_path)
     dataloader.split_txt_files()
     dataloader.apply_noise_reduction()
@@ -14,7 +14,8 @@ if __name__ == "__main__":
 
     math_utils = utils.MathUtils(dataloader.get_numbers_txt_files())
     math_utils.get_shear_rate()
-    math_utils.fourier_transform()
+    math_utils.fourier_transform(folder_path)
+    omega = math_utils.get_omega()
 
-    plotter = plotters.Plotter(folder_path)
+    plotter = plotters.Plotter(folder_path, omega)
 

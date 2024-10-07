@@ -1,6 +1,6 @@
 # utility functions
 import numpy as np
-
+import os
 
 class MathUtils:
 
@@ -38,7 +38,12 @@ class MathUtils:
             print(f"##debug## 剪切速率值--保存文件: {txt_file}")
             np.savetxt(txt_file, data_with_derivatives, delimiter='\t')
 
-    def fourier_transform(self):
+            self.omega = omega
+
+    def get_omega(self):
+        return self.omega
+
+    def fourier_transform(self, folder_path):
         #傅里叶变换
         output_folder = os.path.join(folder_path, "fourier_coefficients")
 
